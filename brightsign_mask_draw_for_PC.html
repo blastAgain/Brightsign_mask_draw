@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>BS Mask Draw for PC</title>
+    <style>
+        body { font-family: sans-serif; display: flex; margin: 0; padding: 20px; background: #f1f3f5; height: 100vh; box-sizing: border-box; user-select: none; overflow: hidden; }
+        #canvas-outer { width: 60%; height: 100%; display: flex; align-items: center; justify-content: center; background: #111; border: 2px solid #333; border-radius: 8px; overflow: hidden; position: relative; }
+        #canvas-area { position: relative; box-shadow: 0 0 25px #000; background: #242424; background-image: linear-gradient(45deg, #3a3a3a 25%, transparent 25%), linear-gradient(-45deg, #3a3a3a 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #3a3a3a 75%), linear-gradient(-45deg, transparent 75%, #3a3a3a 75%); background-size: 30px 30px; background-position: 0 0, 0 15px, 15px -15px, -15px 0; }
+        #control-panel { width: 40%; height: 100%; margin-left: 20px; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow-y: auto; box-sizing: border-box; }
+        h2, h3 { margin: 0 0 6px 0; border-bottom: 2px solid #eee; padding-bottom: 4px; font-size: 14px; }
+        h3 { margin-top: 10px; color: #007bff; }
+        .form-group { margin-bottom: 6px; }
+        label { display: block; font-weight: bold; margin-bottom: 2px; font-size: 11px; color: #495057; }
+        select, input { width: 100%; padding: 4px; border-radius: 4px; border: 1px solid #ced4da; box-sizing: border-box; font-size: 11px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .range-group { display: flex; align-items: center; gap: 6px; }
+        .range-group input[type="range"] { flex: 1; }
+        .range-group input[type="number"] { width: 45px; text-align: right; }
+        #layer-list-container { background: #f8f9fa; border: 1px solid #ced4da; border-radius: 6px; padding: 6px; margin-bottom: 6px; }
+        .layer-item { display: flex; align-items: center; padding: 8px; margin-bottom: 4px; background: #fff; border: 1px solid #dee2e6; border-radius: 4px; font-size: 11px; cursor: grab; font-weight: bold; }
+        .layer-item.dragging { opacity: 0.4; background: #e0f0ff; }
+        .layer-item.active-item { border: 2px solid #007bff; background: #f0f7ff; color: #007bff; }
+        .layer-badge { font-size: 10px; background: #6c757d; color: #fff; padding: 1px 4px; border-radius: 3px; margin-left: auto; }
+        .btn-delete-obj { width: 100%; padding: 6px; background: #dc3545; color: white; border: none; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer; margin-bottom: 6px; }
+        #gradient-bar-container { position: relative; width: 100%; height: 20px; background: #eee; border: 1px solid #ccc; border-radius: 4px; margin: 10px 0; cursor: pointer; }
+        #gradient-bar-preview { width: 100%; height: 100%; border-radius: 3px; }
+        .color-marker { position: absolute; top: -4px; width: 12px; height: 26px; background: #fff; border: 2px solid #333; cursor: ew-resize; transform: translateX(-50%); border-radius: 2px; }
+        .color-marker.selected { border-color: #007bff; background: #e0f0ff; z-index: 10; }
+        .preview-obj { position: absolute !important; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.9); font-size: 11px; font-weight: bold; text-shadow: 1px 1px 2px #000; box-sizing: border-box; border: 1px dashed rgba(255,255,255,0.6); cursor: move; pointer-events: auto !important; }
+        .btn-danger { background: #dc3545; color: #fff; border: none; padding: 3px 6px; border-radius: 4px; cursor: pointer; font-size: 10px; }
+        #send-btn, #export-btn, #png-btn, #export-json-btn { width: 100%; padding: 8px; color: #fff; border: none; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; margin-top: 6px; flex-shrink: 0; }
+        #send-btn { background: #28a745; } 
+        #export-btn { background: #17a2b8; } 
+        #png-btn { background: #6f42c1; }
+        #export-json-btn { background: #e83e8c; }
+        /* ドラッグ＆ドロップエリアの視覚的フィードバック */
+        body.drag-over { background: #e2e6ea !important; }
+        #status { margin-top: 6px; padding: 6px; border-radius: 4px; text-align: center; font-weight: bold; display: none; font-size: 11px; flex-shrink: 0; }
+    </style>
+</head>
+<body>
+<div id="canvas-outer"><div id="canvas-area"></div></div>
+<div id="control-panel">
+    <h2>BS Mask Controller</h2>
+    <div class="grid-2 form-group">
+        <div><label>BrightSign IP:</label><input type="text" id="deviceSelect" value="192.168.1.101" onchange="handleIpChange()"></div>
+        <div><label>対象解像度:</label><select id="screenRes" onchange="updateCanvasSize(); saveToLocalStorage();">
+            <option value="1920x1080">1920x1080 (横)</option>
+            <option value="1920x1200">1920x1200 (WUXGA)</option>
+            <option value="3840x2160">3840x2160 (4K)</option>
+            <option value="1080x1920">1080x1920 (縦)</option>
+        </select></div>
+    </div>
+    <div class="form-group"><label>編集オブジェクト:</label><select id="objectSelect" onchange="selectObject()"><script>for(let i=1; i<=12; i++) document.write(`<option value="${i}">Obj ${i}</option>`);</script></select></div>
+    <button class="btn-delete-obj" onclick="deleteCurrentObjectData()">選択中のオブジェクトを削除</button>
+    <h3>レイヤー順序</h3><div id="layer-list-container"></div>
+    <h3>基本配置</h3>
+    <div class="grid-2 form-group">
+        <div><label>種類:</label><select id="objType" onchange="updateCurrentObject()"><option value="none">なし</option><option value="polygon">四角ポリゴン</option><option value="line">線</option></select></div>
+        <div><label>配置回転角度:</label><div class="range-group"><input type="range" id="objAngleRange" min="0" max="360" value="0" oninput="syncAngleInputs(this.value, 'num')"><input type="number" id="objAngleNum" min="0" max="360" value="0" oninput="syncAngleInputs(this.value, 'range')"></div></div>
+    </div>
+    <div class="grid-2 form-group"><div><label>位置 X (px):</label><input type="number" id="objX" oninput="updateCurrentObject()"></div><div><label>位置 Y (px):</label><input type="number" id="objY" oninput="updateCurrentObject()"></div></div>
+    <div class="grid-2 form-group"><div><label>幅 W (px):</label><input type="number" id="objW" oninput="updateCurrentObject()"></div><div><label>高さ H (px):</label><input type="number" id="objH" oninput="updateCurrentObject()"></div></div>
+    <h3>グラデーション</h3>
+    <div class="form-group"><label>グラデ角度:</label><div class="range-group"><input type="range" id="gradAngleRange" min="0" max="360" value="90" oninput="syncGradAngleInputs(this.value, 'num')"><input type="number" id="gradAngleNum" min="0" max="360" value="90" oninput="syncGradAngleInputs(this.value, 'range')"></div></div>
+    <div id="gradient-bar-container" onclick="addGradientPointViaClick(event)"><div id="gradient-bar-preview"></div></div>
+    <div id="point-settings" style="background: #f8f9fa; padding: 6px; border-radius: 4px; border: 1px solid #dee2e6;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;"><strong style="font-size: 11px;">ポイント設定</strong><button class="btn-danger" onclick="deleteSelectedPoint()">削除</button></div>
+        <div class="grid-2 form-group"><div><label>カラー:</label><input type="color" id="pointColor" onchange="updatePointParams()"></div><div><label>不透明度 (%):</label><div class="range-group"><input type="range" id="pointAlphaRange" min="0" max="100" oninput="syncPointAlpha(this.value, 'num')"><input type="number" id="pointAlphaNum" min="0" max="100" oninput="syncPointAlpha(this.value, 'range')"></div></div></div>
+        <div class="grid-2 form-group"><div><label>位置 (%):</label><div class="range-group"><input type="range" id="pointPosRange" min="0" max="100" oninput="syncPointPos(this.value, 'percent')"><input type="number" id="pointPosPercent" min="0" max="100" oninput="syncPointPos(this.value, 'range')"></div></div><div><label>位置 (px相当):</label><input type="number" id="pointPosPx" oninput="syncPointPos(this.value, 'px')"></div></div>
+    </div>
+    <button id="send-btn" onclick="sendToBrightSign()">BrightSignへ同期送信</button>
+    <button id="export-json-btn" onclick="exportConfigJSON()">設定JSONファイル保存（バックアップ）</button>
+    <button id="export-btn" onclick="exportStaticOfflineHTML()">オフライン用 HTML保存</button>
+    <button id="png-btn" onclick="exportTransparentPNG()">透明PNG画像保存</button>
+    <div style="font-size: 10px; color: #6c757d; text-align: center; margin-top: 4px;">💡 ここにJSONファイルをドラッグ＆ドロップして復元できます</div>
+    <div id="status"></div>
+</div>
+
+<script>
+var targetW = 1920, targetH = 1080, scaleFactor = 1, selectedPointIndex = 0;
+var isDragging = false, draggedObj = null, isDraggingMarker = false, draggedMarkerIndex = null;
+
+var defaultObjectsData = function() {
+    return Array.from({length: 12}, function(_, i) {
+        return {
+            id: i + 1, type: i < 2 ? (i === 0 ? "polygon" : "line") : "none", x: i === 0 ? 200 : 100, y: i === 0 ? 200 : 600, w: i === 1 ? 1200 : 400, h: i === 1 ? 10 : 300, angle: 0, gradAngle: 90, zIndex: 12 - i,
+            stops: [{ pos: 0, color: "#000000", alpha: 100 }, { pos: 100, color: "#000000", alpha: 0 }]
+        };
+    });
+};
+var objectsData = defaultObjectsData();
+var canvas = document.getElementById('canvas-area');
+
+function hexToRgba(hex, alphaPercent) { 
+    return 'rgba(' + parseInt(hex.slice(1, 3), 16) + ', ' + parseInt(hex.slice(3, 5), 16) + ', ' + parseInt(hex.slice(5, 7), 16) + ', ' + (alphaPercent / 100) + ')'; 
+}
+
+function saveToLocalStorage() { 
+    var ip = document.getElementById('deviceSelect').value.trim() || '192.168.1.101';
+    localStorage.setItem('bs_last_ip', ip);
+    localStorage.setItem('bs_res_' + ip, document.getElementById('screenRes').value); 
+    localStorage.setItem('bs_objects_data_' + ip, JSON.stringify(objectsData)); 
+}
+
+function loadFromLocalStorage() {
+    var urlParams = new URLSearchParams(window.location.search);
+    var urlIp = urlParams.get('ip');
+    var lastIp = localStorage.getItem('bs_last_ip') || '192.168.1.101';
+    var currentIp = document.getElementById('deviceSelect').value.trim();
+    
+    var ip = urlIp || currentIp || lastIp;
+    document.getElementById('deviceSelect').value = ip;
+    
+    var savedRes = localStorage.getItem('bs_res_' + ip);
+    var savedData = localStorage.getItem('bs_objects_data_' + ip);
+    if (savedRes) document.getElementById('screenRes').value = savedRes;
+    if (savedData) { try { objectsData = JSON.parse(savedData); } catch(e) { objectsData = defaultObjectsData(); } } else { objectsData = defaultObjectsData(); }
+}
+
+function handleIpChange() {
+    saveToLocalStorage(); loadFromLocalStorage(); updateCanvasSize(); selectObject();
+}
+
+function updateCanvasSize() {
+    var res = document.getElementById('screenRes').value.split('x'); 
+    targetW = parseInt(res[0], 10); 
+    targetH = parseInt(res[1], 10);
+    
+    var outer = document.getElementById('canvas-outer'), maxW = outer.clientWidth - 40, maxH = outer.clientHeight - 40;
+    scaleFactor = Math.min(maxW / targetW, maxH / targetH);
+    
+    canvas.style.width = Math.round(targetW * scaleFactor) + 'px'; 
+    canvas.style.height = Math.round(targetH * scaleFactor) + 'px';
+    
+    if(document.getElementById('preview-id-1')) {
+        objectsData.forEach(renderObjectDOM);
+    }
+}
+</script>
+
+<script>
+var dragStartObjX = 0, dragStartObjY = 0, dragStartMouseX = 0, dragStartMouseY = 0;
+
+function initPreview() {
+    loadFromLocalStorage(); 
+    updateCanvasSize(); 
+    canvas.querySelectorAll('.preview-obj').forEach(function(el) { el.remove(); });
+    
+    objectsData.forEach(function(obj) {
+        var div = document.createElement('div'); 
+        div.id = 'preview-id-' + obj.id; 
+        div.className = 'preview-obj'; 
+        div.innerText = 'Obj ' + obj.id;
+        
+        div.addEventListener('mousedown', function(e) { startDrag(e, obj); }); 
+        canvas.appendChild(div); 
+        renderObjectDOM(obj);
+    });
+    
+    window.addEventListener('mousemove', handleGlobalMouseMove); 
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    document.getElementById('layer-list-container').addEventListener('dragover', handleListDragOver);
+    
+    // 画面全体へのドラッグ＆ドロップによる設定インポート機能の設定
+    setupDragAndDropImport();
+
+    selectObject(); 
+    renderLayerListUI();
+}
+
+function startDrag(e, obj) { 
+    if (obj.type === 'none') return; 
+    isDragging = true; 
+    draggedObj = obj; 
+    document.getElementById('objectSelect').value = obj.id; 
+    
+    dragStartMouseX = e.clientX; 
+    dragStartMouseY = e.clientY; 
+    dragStartObjX = obj.x; 
+    dragStartObjY = obj.y; 
+    
+    selectObject(); 
+    e.stopPropagation(); 
+}
+
+function handleGlobalMouseUp() { 
+    if (isDragging || isDraggingMarker) saveToLocalStorage(); 
+    isDragging = false; 
+    draggedObj = null; 
+    isDraggingMarker = false; 
+    draggedMarkerIndex = null; 
+}
+
+function handleGlobalMouseMove(e) {
+    if (isDragging && draggedObj) {
+        var currentScale = scaleFactor || 0.1;
+        var totalDx = (e.clientX - dragStartMouseX) / currentScale;
+        var totalDy = (e.clientY - dragStartMouseY) / currentScale;
+        
+        draggedObj.x = Math.round(dragStartObjX + totalDx); 
+        draggedObj.y = Math.round(dragStartObjY + totalDy); 
+        
+        document.getElementById('objX').value = draggedObj.x; 
+        document.getElementById('objY').value = draggedObj.y; 
+        renderObjectDOM(draggedObj);
+    } else if (isDraggingMarker && draggedMarkerIndex !== null) {
+        var container = document.getElementById('gradient-bar-container'), rect = container.getBoundingClientRect();
+        var pct = Math.max(0, Math.min(100, Math.round(((e.clientX - rect.left) / rect.width) * 100)));
+        var id = parseInt(document.getElementById('objectSelect').value, 10), obj = objectsData.find(function(x) { return x.id === id; });
+        
+        obj.stops[draggedMarkerIndex].pos = pct; 
+        sortStops(obj); 
+        renderGradientBar(obj); 
+        renderObjectDOM(obj); 
+        updatePointEditorFields(obj.stops[selectedPointIndex]);
+    }
+}
+</script>
+
+<script>
+function renderLayerListUI() {
+    var container = document.getElementById('layer-list-container'); container.innerHTML = '';
+    var activeObjs = objectsData.filter(function(o) { return o.type !== 'none'; }).sort(function(a, b) { return b.zIndex - a.zIndex; }), selectedId = parseInt(document.getElementById('objectSelect').value, 10);
+    activeObjs.forEach(function(obj) {
+        var item = document.createElement('div'); item.className = 'layer-item ' + (obj.id === selectedId ? 'active-item' : ''); item.draggable = true; item.dataset.id = obj.id;
+        item.innerHTML = '<span>Obj ' + obj.id + ' (' + (obj.type === 'polygon' ? '四角' : '線') + ')</span> <span class="layer-badge">z:' + obj.zIndex + '</span>';
+        item.addEventListener('dragstart', function() { item.classList.add('dragging'); });
+        item.addEventListener('dragend', function() { item.classList.remove('dragging'); recalculateZIndexFromList(); });
+        item.addEventListener('click', function() { document.getElementById('objectSelect').value = obj.id; selectObject(); });
+        container.appendChild(item);
+    });
+}
+
+function handleListDragOver(e) { e.preventDefault(); var container = document.getElementById('layer-list-container'), draggingItem = document.querySelector('.dragging'); if (!draggingItem) return; var siblings = Array.prototype.slice.call(container.querySelectorAll('.layer-item:not(.dragging)')), nextSibling = siblings.find(function(sib) { return e.clientY <= sib.getBoundingClientRect().top + sib.getBoundingClientRect().height / 2; }); container.insertBefore(draggingItem, nextSibling); }
+
+function recalculateZIndexFromList() {
+    var items = Array.prototype.slice.call(document.querySelectorAll('.layer-item')), total = items.length;
+    items.forEach(function(item, index) { var id = parseInt(item.dataset.id, 10), obj = objectsData.find(function(y) { return y.id === id; }); if (obj) obj.zIndex = total - index; });
+    objectsData.forEach(renderObjectDOM); renderLayerListUI(); saveToLocalStorage();
+}
+
+function sortStops(obj) { 
+    var currentSelectedStop = obj.stops[selectedPointIndex]; 
+    obj.stops.sort(function(m, n) { return m.pos - n.pos; }); 
+    if(currentSelectedStop) selectedPointIndex = obj.stops.indexOf(currentSelectedStop); 
+}
+
+function selectObject() {
+    var id = parseInt(document.getElementById('objectSelect').value, 10), obj = objectsData.find(function(x) { return x.id === id; });
+    document.getElementById('objType').value = obj.type; document.getElementById('objX').value = obj.x; document.getElementById('objY').value = obj.y; document.getElementById('objW').value = obj.w; document.getElementById('objH').value = obj.h;
+    document.getElementById('objAngleRange').value = obj.angle; document.getElementById('objAngleNum').value = obj.angle; document.getElementById('gradAngleRange').value = obj.gradAngle; document.getElementById('gradAngleNum').value = obj.gradAngle;
+    renderGradientBar(obj); if(obj.stops[selectedPointIndex]) updatePointEditorFields(obj.stops[selectedPointIndex]); renderLayerListUI();
+}
+</script>
+
+<script>
+function addGradientPointViaClick(e) {
+    if(e.target.className.includes('color-marker')) return; var container = document.getElementById('gradient-bar-container'), rect = container.getBoundingClientRect(), pct = Math.max(0, Math.min(100, Math.round(((e.clientX - rect.left) / rect.width) * 100))), id = parseInt(document.getElementById('objectSelect').value, 10), obj = objectsData.find(function(x) { return x.id === id; }); if(obj.type === 'none') return;
+    var newStop = { pos: pct, color: "#ff0000", alpha: 100 }; obj.stops.push(newStop); sortStops(obj); selectedPointIndex = obj.stops.indexOf(newStop);
+    renderGradientBar(obj); renderObjectDOM(obj); updatePointEditorFields(newStop); saveToLocalStorage();
+}
+function deleteSelectedPoint() {
+    var id = parseInt(document.getElementById('objectSelect').value, 10), obj = objectsData.find(function(x) { return x.id === id; }); if (obj.stops.length <= 1) { alert("ポイントは最低1つ必要です。"); return; }
+    obj.stops.splice(selectedPointIndex, 1); selectedPointIndex = 0; renderGradientBar(obj); renderObjectDOM(obj); updatePointEditorFields(obj.stops); saveToLocalStorage();
+}
+function renderGradientBar(obj) {
+    var container = document.getElementById('gradient-bar-container'); container.querySelectorAll('.color-marker').forEach(function(el) { el.remove(); }); if(obj.type==='none') { document.getElementById('gradient-bar-preview').style.background = '#eee'; return; }
+    var cssStops = obj.stops.map(function(s) { return hexToRgba(s.color, s.alpha) + " " + s.pos + "%"; }).join(', '); document.getElementById('gradient-bar-preview').style.background = "linear-gradient(90deg, " + cssStops + ")";
+    obj.stops.forEach(function(stop, index) {
+        var marker = document.createElement('div'); marker.className = 'color-marker ' + (index === selectedPointIndex ? 'selected' : ''); marker.style.left = stop.pos + '%';
+        marker.addEventListener('mousedown', function(e) { isDraggingMarker = true; draggedMarkerIndex = index; selectedPointIndex = index; selectObject(); e.stopPropagation(); e.preventDefault(); });
+        container.appendChild(marker);
+    });
+}
+function updatePointEditorFields(stop) {
+    if(!stop) return; document.getElementById('pointColor').value = stop.color; document.getElementById('pointAlphaRange').value = stop.alpha; document.getElementById('pointAlphaNum').value = stop.alpha; document.getElementById('pointPosRange').value = stop.pos; document.getElementById('pointPosPercent').value = stop.pos;
+    var id = parseInt(document.getElementById('objectSelect').value, 10), obj = objectsData.find(function(x) { return x.id === id; }); document.getElementById('pointPosPx').value = Math.round((stop.pos / 100) * obj.w);
+}
+function updatePointParams() { var id = parseInt(document.getElementById('objectSelect').value, 10), obj = objectsData.find(function(x) { return x.id === id; }), stop = obj.stops[selectedPointIndex]; if(!stop) return; stop.color = document.getElementById('pointColor').value; renderGradientBar(obj); renderObjectDOM(obj); saveToLocalStorage(); }
+function syncPointAlpha(val, type) {
+    var value = Math.max(0, Math.min(100, parseInt(val, 10) || 0)); if(type==='num') document.getElementById('pointAlphaNum').value = value; if(type==='range') document.getElementById('pointAlphaRange').value = value;
+    var id = parseInt(document.getElementById('objectSelect').value, 10), obj = objectsData.find(function(x) { return x.id === id; }); if(obj.stops[selectedPointIndex]) obj.stops[selectedPointIndex].alpha = value; renderGradientBar(obj); renderObjectDOM(obj); saveToLocalStorage();
+}
+function syncPointPos(val, type) {
+    var id = parseInt(document.getElementById('objectSelect').value, 10), obj = objectsData.find(function(x) { return x.id === id; }), stop = obj.stops[selectedPointIndex]; if(!stop) return; var pct = stop.pos;
+    if (type === 'percent' || type === 'range') pct = Math.max(0, Math.min(100, parseInt(val, 10) || 0)); else if (type === 'px') pct = Math.max(0, Math.min(100, Math.round((parseInt(val, 10) / obj.w) * 100)));
+    stop.pos = pct; sortStops(obj); renderGradientBar(obj); renderObjectDOM(obj); updatePointEditorFields(obj.stops[selectedPointIndex]); saveToLocalStorage();
+}
+function renderObjectDOM(obj) {
+    var div = document.getElementById('preview-id-' + obj.id); if (!div) return; if (obj.type === 'none') { div.style.display = 'none'; return; }
+    div.style.display = 'flex'; div.style.left = Math.round(obj.x * scaleFactor) + 'px'; div.style.top = Math.round(obj.y * scaleFactor) + 'px';
+    div.style.width = Math.round(obj.w * scaleFactor) + 'px'; div.style.height = Math.round(obj.h * scaleFactor) + 'px'; div.style.transform = "rotate(" + obj.angle + "deg)"; div.style.zIndex = obj.zIndex; div.style.lineHeight = div.style.height;
+    if (obj.type === 'polygon') { var cssStops = obj.stops.map(function(s) { return hexToRgba(s.color, s.alpha) + " " + s.pos + "%"; }).join(', '); div.style.background = "linear-gradient(" + obj.gradAngle + "deg, " + cssStops + ")"; }
+    else if (obj.type === 'line') { var firstStop = obj.stops[0]; if(firstStop) div.style.background = hexToRgba(firstStop.color, firstStop.alpha); }
+}
+function updateCurrentObject() {
+    var id = parseInt(document.getElementById('objectSelect').value, 10), obj = objectsData.find(function(o) { return o.id === id; }); if(!obj) return;
+    obj.type = document.getElementById('objType').value; obj.x = parseInt(document.getElementById('objX').value, 10) || 0; obj.y = parseInt(document.getElementById('objY').value, 10) || 0; obj.w = parseInt(document.getElementById('objW').value, 10) || 10; obj.h = parseInt(document.getElementById('objH').value, 10) || 10;
+    obj.angle = parseInt(document.getElementById('objAngleNum').value, 10) || 0; obj.gradAngle = parseInt(document.getElementById('gradAngleNum').value, 10) || 0;
+    renderObjectDOM(obj); renderLayerListUI(); saveToLocalStorage();
+}
+function deleteCurrentObjectData() {
+    var id = parseInt(document.getElementById('objectSelect').value, 10), obj = objectsData.find(function(x) { return x.id === id; }); if (!obj) return;
+    obj.type = "none"; obj.x = 100; obj.y = 100; obj.w = 400; obj.h = 300; obj.angle = 0; obj.gradAngle = 90;
+    obj.stops = [{ pos: 0, color: "#000000", alpha: 100 }, { pos: 100, color: "#000000", alpha: 0 }];
+    renderObjectDOM(obj); selectObject(); saveToLocalStorage();
+}
+</script>
+
+<script>
+function getTimestampString() {
+    var d = new Date(); var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+    return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + "_" + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
+}
+
+function getIpTag() {
+    var i = document.getElementById('deviceSelect').value.trim() || '192.168.1.101';
+    return i.replace(/[:\/\\?%*:|"<>]/g, '_');
+}
+
+// 設定データをJSONファイルとしてエクスポート（別マシンへの引き継ぎ用）
+function exportConfigJSON() {
+    var statusDiv = document.getElementById('status');
+    statusDiv.style.display = "block"; statusDiv.innerText = "設定JSONファイルを生成中...";
+    
+    var exportData = {
+        ip: document.getElementById('deviceSelect').value.trim(),
+        resolution: document.getElementById('screenRes').value,
+        objects: objectsData
+    };
+    
+    var b = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json;charset=utf-8" });
+    var l = document.createElement("a"); 
+    l.href = URL.createObjectURL(b); 
+    l.download = "mask_config_" + getIpTag() + "_" + getTimestampString() + ".json";
+    
+    document.body.appendChild(l); l.click(); document.body.removeChild(l);
+    statusDiv.innerText = "✅ JSON保存成功！「" + l.download + "」を保存しました。"; 
+    statusDiv.style.background = "#d4edda"; statusDiv.style.color = "#155724";
+}
+
+// ドラッグ＆ドロップによるJSONファイルの読み込み設定
+function setupDragAndDropImport() {
+    var statusDiv = document.getElementById('status');
+
+    window.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        document.body.classList.add('drag-over');
+    });
+
+    window.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        document.body.classList.remove('drag-over');
+    });
+
+    window.addEventListener('drop', function(e) {
+        e.preventDefault();
+        document.body.classList.remove('drag-over');
+        
+        var files = e.dataTransfer.files;
+        if (files.length === 0) return;
+        
+        var file = files[0];
+        if (!file.name.endsWith('.json')) {
+            alert("JSONファイルをドロップしてください。");
+            return;
+        }
+        
+        var reader = new FileReader();
+        reader.onload = function(event) {
+            try {
+                var imported = JSON.parse(event.target.result);
+                if (imported.ip) document.getElementById('deviceSelect').value = imported.ip;
+                if (imported.resolution) document.getElementById('screenRes').value = imported.resolution;
+                if (imported.objects && Array.isArray(imported.objects)) {
+                    objectsData = imported.objects;
+                }
+                
+                saveToLocalStorage();
+                updateCanvasSize();
+                
+                // キャンバスプレビュー要素の再初期化
+                canvas.querySelectorAll('.preview-obj').forEach(function(el) { el.remove(); });
+                objectsData.forEach(function(obj) {
+                    var div = document.createElement('div'); 
+                    div.id = 'preview-id-' + obj.id; 
+                    div.className = 'preview-obj'; 
+                    div.innerText = 'Obj ' + obj.id;
+                    div.addEventListener('mousedown', function(e) { startDrag(e, obj); }); 
+                    canvas.appendChild(div); 
+                    renderObjectDOM(obj);
+                });
+                
+                selectObject();
+                renderLayerListUI();
+                
+                statusDiv.style.display = "block";
+                statusDiv.innerText = "✅ 設定のインポートに成功しました（IP: " + document.getElementById('deviceSelect').value + "）";
+                statusDiv.style.background = "#d4edda";
+                statusDiv.style.color = "#155724";
+            } catch (err) {
+                alert("JSONファイルの解析に失敗しました。ファイルが破損している可能性があります。");
+            }
+        };
+        reader.readAsText(file);
+    });
+}
+
+function sendToBrightSign() {
+    var i = document.getElementById('deviceSelect').value.trim(), statusDiv = document.getElementById('status');
+    statusDiv.style.display = "block"; statusDiv.innerText = "データ転送中..."; statusDiv.style.background = "#e9ecef"; statusDiv.style.color = "#333";
+    
+    var t = "http://" + window.location.host + "/SetValues"; 
+    if (i && !i.includes("localhost") && !i.includes("127.0.0.1") && window.location.protocol.indexOf("http") === -1) {
+        var c = i.split(":"); t = "http://" + c + ":8008/SetValues";
+    }
+    
+    var segs = objectsData.map(function(o) {
+        if (o.type === 'none') return "none";
+        var s = o.stops.map(function(x) { return x.pos + "_" + x.color.replace('#','') + "_" + x.alpha; }).join('|');
+        return o.type + "," + o.x + "," + o.y + "," + o.w + "," + o.h + "," + o.angle + "," + o.gradAngle + "," + s + "," + o.zIndex;
+    });
+    
+    fetch(t, { method: 'POST', body: new URLSearchParams({ 'mask_config_string': segs.join(';') }), mode: 'no-cors' })
+    .then(function() { statusDiv.innerText = "✅ 同期送信に成功しました。"; statusDiv.style.background = "#d4edda"; statusDiv.style.color = "#155724"; })
+    .catch(function() { statusDiv.innerText = "❌ 送信に失敗しました。"; statusDiv.style.background = "#f8d7da"; });
+}
+
+function exportStaticOfflineHTML() {
+    var statusDiv = document.getElementById('status'); statusDiv.style.display = "block"; statusDiv.innerText = "オフラインHTMLファイルを生成中...";
+    var hStr = "";
+    objectsData.forEach(function(o) {
+        if (o.type === 'none') return;
+        var bS = "";
+        if (o.type === 'polygon') {
+            var s = o.stops.map(function(x) { return hexToRgba(x.color, x.alpha) + " " + x.pos + "%"; }).join(', ');
+            bS = "linear-gradient(" + o.gradAngle + "deg, " + s + ")";
+        } else if (o.type === 'line') {
+            var f = o.stops; if(f && f[0]) bS = hexToRgba(f[0].color, f[0].alpha);
+        }
+        hStr += "    <div style='position: absolute !important; box-sizing: border-box; left: " + o.x + "px; top: " + o.y + "px; width: " + o.w + "px; height: " + o.h + "px; transform: rotate(" + o.angle + "deg); z-index: " + o.zIndex + "; background: " + bS + "; " + (o.type === 'line' ? "border-radius: 2px;" : "") + "'></div>\n";
+    });
+    var fH = "<!DOCTYPE html>\n<html lang=\"ja\">\n<head>\n    <meta charset=\"UTF-8\">\n    <title>BrightSign Offline Mask Layer</title>\n    <style>\n        html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; background-color: transparent !important; overflow: hidden; box-sizing: border-box; }\n    </style>\n</head>\n<body>\n" + hStr + "</body>\n</html>";
+    
+    var b = new Blob([fH], { type: "text/html;charset=utf-8" }), l = document.createElement("a"); 
+    l.href = URL.createObjectURL(b); 
+    l.download = "index_" + getIpTag() + "_" + getTimestampString() + ".html";
+    
+    document.body.appendChild(l); l.click(); document.body.removeChild(l);
+    statusDiv.innerText = "✅ HTML保存成功！「" + l.download + "」をダウンロードしました。"; statusDiv.style.background = "#d4edda"; statusDiv.style.color = "#155724";
+}
+
+function exportTransparentPNG() {
+    var statusDiv = document.getElementById('status'); statusDiv.style.display = "block"; statusDiv.innerText = "透明PNG画像を生成中...";
+    var hC = document.createElement('canvas'); hC.width = targetW; hC.height = targetH; var ctx = hC.getContext('2d'); ctx.clearRect(0, 0, targetW, targetH);
+    var s = objectsData.filter(function(x) { return x.type !== 'none'; }).sort(function(m, n) { return m.zIndex - n.zIndex; });
+    s.forEach(function(o) {
+        ctx.save(); ctx.translate(o.x + o.w / 2, o.y + o.h / 2); ctx.rotate((o.angle * Math.PI) / 180); ctx.beginPath(); ctx.rect(-o.w / 2, -o.h / 2, o.w, o.h);
+        if (o.type === 'polygon') {
+            var rad = ((o.gradAngle - 90) * Math.PI) / 180, r = Math.sqrt(o.w * o.w + o.h * o.h) / 2, xO = Math.cos(rad) * r, yO = Math.sin(rad) * r, g = ctx.createLinearGradient(-xO, -yO, xO, yO);
+            o.stops.forEach(function(x) { g.addColorStop(x.pos / 100, hexToRgba(x.color, x.alpha)); }); ctx.fillStyle = g; ctx.fill();
+        } else if (o.type === 'line') {
+            var f = o.stops; if(f && f[0]) ctx.fillStyle = hexToRgba(f[0].color, f[0].alpha); ctx.fill();
+        }
+        ctx.restore();
+    });
+    var pngDataUrl = hC.toDataURL('image/png'), l = document.createElement("a"); 
+    l.href = pngDataUrl; 
+    l.download = "mask_" + getIpTag() + "_" + getTimestampString() + ".png";
+    
+    document.body.appendChild(l); l.click(); document.body.removeChild(l);
+    statusDiv.innerText = "✅ PNG保存成功！「" + l.download + "」を保存しました。"; statusDiv.style.background = "#d4edda"; statusDiv.style.color = "#155724";
+}
+
+var syncAngleInputs = function(v, t) { if(t==='num')document.getElementById('objAngleNum').value=v; else document.getElementById('objAngleRange').value=v; updateCurrentObject(); };
+var syncGradAngleInputs = function(v, t) { if(t==='num')document.getElementById('gradAngleNum').value=v; else document.getElementById('gradAngleRange').value=v; updateCurrentObject(); };
+window.onload = initPreview; window.onresize = updateCanvasSize;
+</script>
+</html>

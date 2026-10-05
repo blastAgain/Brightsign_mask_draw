@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>BS Mask Draw for Brightsign Receiver</title>
+    <style>
+        html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; background-color: transparent !important; overflow: hidden; box-sizing: border-box; }
+        #stage { position: relative; width: 100%; height: 100%; background: transparent; }
+        .mask-obj { position: absolute !important; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: none; color: transparent; }
+    </style>
+</head>
+<body>
+    <div id="stage"></div>
+<script>
+var lastConfigString = "";
+
+function parseToRgba(hexStr, alphaPercent) {
+    var r = parseInt(hexStr.slice(0, 2), 16), g = parseInt(hexStr.slice(2, 4), 16), b = parseInt(hexStr.slice(4, 6), 16);
+    return "rgba(" + r + ", " + g + ", " + b + ", " + (parseInt(alphaPercent, 10) / 100) + ")";
+}
+
+function buildGradientCss(gradAngle, stopsString) {
+    var stopsRaw = stopsString.split("|"), cssSegments = [];
+    for (var i = 0; i < stopsRaw.length; i++) {
+        var parts = stopsRaw[i].split("_");
+        if (parts.length === 3) {
+            cssSegments.push(parseToRgba(parts[1], parts[2]) + " " + parts[0] + "%");
+        }
+    }
+    return "linear-gradient(" + gradAngle + "deg, " + cssSegments.join(", ") + ")";
+}
+
+function checkBrightSignVariables() {
+    fetch('http://localhost:8008/GetUserVars')
+    .then(function(res) { return res.text(); })
+    .then(function(xmlString) {
+        var parser = new DOMParser(), xmlDoc = parser.parseFromString(xmlString, "text/xml");
+        var targetVar = xmlDoc.querySelector('BrightSignVar[name="mask_config_string"]');
+        if (targetVar) {
+            var combinedString = targetVar.textContent;
+            if (combinedString === lastConfigString) return;
+            lastConfigString = combinedString;
+            
+            var stage = document.getElementById('stage');
+            stage.innerHTML = "";
+            var objSegments = combinedString.split(";");
+            
+            for (var i = 0; i < objSegments.length; i++) {
+                var currentData = objSegments[i];
+                if (currentData === "none" || !currentData) continue;
+                
+                var params = currentData.split(",");
+                if (params.length < 9) continue;
+                
+                var type = params[0], x = params[1], y = params[2], w = params[3], h = params[4], angle = params[5], gradAngle = params[6], stopsStr = params[7], zIndex = params[8];
+                var maskElement = document.createElement('div');
+                maskElement.className = 'mask-obj';
+                maskElement.style.left = x + 'px'; maskElement.style.top = y + 'px'; maskElement.style.width = w + 'px'; maskElement.style.height = h + 'px';
+                maskElement.style.transform = 'rotate(' + angle + 'deg)'; maskElement.style.zIndex = zIndex;
+                
+                if (type === 'polygon') {
+                    maskElement.style.background = buildGradientCss(gradAngle, stopsStr);
+                    maskElement.style.borderRadius = '0px';
+                } else if (type === 'line') {
+                    var firstStop = stopsStr.split("|")[0].split("_");
+                    if (firstStop.length === 3) {
+                        maskElement.style.background = parseToRgba(firstStop[1], firstStop[2]);
+                    }
+                    maskElement.style.borderRadius = '2px';
+                }
+                stage.appendChild(maskElement);
+            }
+        }
+    })
+    .catch(function(err) { console.error(err); });
+}
+
+setInterval(checkBrightSignVariables, 1000);
+checkBrightSignVariables();
+</script>
+</body>
+</html>
