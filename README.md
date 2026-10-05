@@ -4,7 +4,7 @@ BrightSignの実機に対して、マルチレイヤー構造の透過マスク�
 
 このプログラム、README.mdはChromeのAIモードで作られました。
 ファイルをすべて同じフォルダに入れてください。
-
+English version is at the bottom.
 ---
 
 ## 📦 1. 必須ファイルとプロジェクト構成
@@ -123,3 +123,126 @@ PCコントローラー上で完璧にマスクの型・グラデーション調
   「透明PNG画像保存」で書き出した透過PNGマスクを、最初に読み込ませていたプレースホルダー用の透明画像（**`trans_pic.png`**）と完全に差し替えてSDカードかネットワーク経由で投入します。
 
 ---
+
+# BS Mask Draw for PC (BrightSign Multi-Gradient Mask Controller)
+
+This high-precision mask editor system allows you to real-time synchronize, transmit, automatically store, and export multi-layer transparent masks and multi-stage gradient data to BrightSign media players for projection mapping and spatial digital signage installations.
+
+---
+
+## 📦 1. Required Files and Project Configuration
+
+To operate this system, pack the following **required files** and **configuration examples** into the same folder. When prompted for the file location upon launching the app, specify this folder.
+
+### 🔹 Required Files (Core System)
+* **`brightsign_mask_draw_for_PC.html`**: The controller opened in a PC browser to intuitively draw, transmit, and save masks.
+* **`brightsign_mask_draw_for_BS.html`**: The player loaded into the BrightSign unit to render received data or exported files in full screen.
+
+### 🎬 Configuration Pattern Examples
+
+#### [Example 1] HTML Real-Time Sync & HTML Standalone Operation
+Ideal for environments with an established network connection, or when you want to constantly display a lightweight transparent mask using HTML5 only.
+* **BrightAuthor:connected File**: `brightsign_mask_draw_for_PCmasktest01.bpfx`
+* **Background Video File**: `loopp.mp4`
+* **HTML5 Player**: `brightsign_mask_draw_for_brightsign.html` (For real-time receiving and offline playback on the unit)
+
+#### [Example 2] UDP Command Switching & Transparent PNG Mask Overlay Operation
+A professional-grade configuration that uses UDP commands (`makemaskUDP` / `normalmaskUDP`) to instantly switch between "Mask Creation Mode" and the "Production (Default) Normal Mask".
+* **BrightAuthor:connected File**: `brightsign2_masktest01.bpfx`
+* **Background Video File**: `loopp.mp4`
+* **HTML5 Player**: `brightsign_mask_draw_for_brightsign.html`
+* **PNG Mask Placeholder**: `trans_pic.png` (A blank transparent image loaded initially. Replace this with your generated transparent PNG mask for production)
+
+---
+
+## ⚙️ 2. Controller Launch Methods (3 Patterns)
+
+This system utilizes browser `localStorage` to **completely separate and automatically store configuration data per IP address**, even within the same browser.
+
+### Pattern 1: Basic Launch (Manual Operation)
+1. Open `brightsign_mask_draw_for_PC.html` in a web browser.
+2. Enter the target BrightSign IP address (e.g., `192.168.1.101`) into the **"BrightSign IP"** field in the upper right.
+3. **[Crucial]** The moment you click outside the IP field or press Enter to confirm, the data specific to that IP will load automatically.
+
+### Pattern 2: Quick-Launch via Multi-Tab URL Parameters ★ Highly Recommended for On-Site Use
+By adding a `?ip=XX` parameter to the end of the URL and bookmarking it, you can start the page with the specific IP data pre-loaded. This is extremely efficient for multi-signage setups.
+* **Tab for Unit 1**: `http://<YOUR_SERVER_IP>/brightsign_mask_draw_for_PC.html?ip=192.168.1.101`
+* **Tab for Unit 2**: `http://<YOUR_SERVER_IP>/brightsign_mask_draw_for_PC.html?ip=192.168.1.102`
+
+### Pattern 3: Instant Restoration via JSON File Drag & Drop ★ Highly Recommended for On-Site Use
+Simply **drag and drop** a previously exported JSON backup file anywhere onto the page to 100% restore your settings instantly. You can manage and restore multiple units simultaneously by dropping different JSON files into separate browser tabs.
+
+---
+
+## 🎨 3. UI Operation Manual
+
+Operate the right control panel from top to bottom to construct your mask layout.
+
+* **[STEP 1] Target Resolution Settings (WUXGA Display Supported)**
+  * Select your display resolution from the drop-down menu to match your site hardware.
+  * Options: `1920x1080 (Landscape)` / `1920x1200 (WUXGA) 🌟` / `3840x2160 (4K)` / `1080x1920 (Portrait)`
+  * Upon selection, the left preview canvas automatically snaps to the designated aspect ratio (16:9, 16:10, etc.).
+* **[STEP 2] Object Placement and Intuitive Dragging**
+  * **Edit Object**: Switch and individualize up to 12 objects (`Obj 1–12`).
+  * **Type**: Choose from `None` / `Polygon (Rectangle)` / `Line`. Your shape will instantly appear on the canvas.
+  * **Operation**: Click and grab shapes directly on the left screen for **smooth, pixel-perfect drag movement following your mouse**.
+  * **Layer Order**: Drag and drop items up or down within the right list to **intuitively rearrange the stacking order (zIndex)**.
+* **[STEP 3] Multi-Stage Gradient Adjustments**
+  * When `Polygon` is selected, **click anywhere on the gray gradient bar to add an unlimited number of color markers (points)**. Select a marker to change its color or opacity (0–100%), or click the red button to delete it.
+
+---
+
+## 💾 4. Output, Save, and Restore Commands
+
+Once adjustments are complete, use the buttons at the bottom right to export or back up your data.
+
+| Button Name / Area | Functionality | On-Site Use Cases |
+| :--- | :--- | :--- |
+| **BrightSignへ同期送信<br>(Sync to BrightSign)** | Instantly transmits layer and multi-gradient data via POST request to BrightSign's local network (Port `8008`) under the User Variable string `mask_config_string`. | **For real-time mask alignment on-site while projecting onto a canvas or monitor.** |
+| **設定JSONファイル保存<br>(Save Config JSON Backup) 🌟** | Downloads a backup **`JSON file`** containing all 12 object datasets and resolution settings to your PC. | **For hardware replacements, clearing browser history, migrating data to other PCs**, or saving a secure template to revert to previous layouts at any time. |
+| **オフライン用 HTML保存<br>(Save Offline HTML)** | Generates a single, ultra-lightweight HTML file that completely retains the constructed multi-layer structure and CSS gradient values. | Save directly as `index.html` on the SD card to **run the BrightSign standalone as a transparent web mask player (as shown in [Example 1]).** |
+| **透明PNG画像保存<br>(Save Transparent PNG)** | Renders and exports your mask layout as a full-scale transparent background PNG image (FHD or 4K) via the internal canvas. | **To replace the placeholder image (`trans_pic.png`) in [Example 2]**, or to import into video editing software (Premiere/After Effects) to bake the mask onto content. |
+| **💡 Drag & Drop Area for JSON Files** | Drag and drop a saved JSON file anywhere on the page to immediately restore previous configuration data to 100%. | **To instantly load and re-edit past site data** or backup data used on another IP address. |
+
+---
+
+# 🤖 BrightSign Hardware Preparation & Setup Manual
+
+To ensure BrightSign correctly receives real-time sync transmissions (POST requests) from the controller and precisely renders mask shapes, apply the following system configurations in BrightAuthor or BrightAuthor:connected.
+
+### 1) Enable Local Network Server (Web Server Feature)
+The controller sends data to BrightSign via **Port `8008`**. The unit's local web server feature must be enabled.
+* **BrightAuthor (Classic)**: Go to `Presentation Properties` > `Interactive` > `Networking` tab, check **`Enable Local Web Server`**, and set the port to **`8008`**.
+* **BrightAuthor:connected 🌟**: **No manual configuration for port 8008 is required** (it is optimized and enabled by default; you can skip this step).
+
+### 2) Create User Variable for Receiving Data
+Register the variable name (parameter) that will catch the transmitted data string on the device.
+* Open the `User Variables` menu and add a new variable:
+  * **Variable Name**: **`mask_config_string`** (Must be exact; case-sensitive)
+  * **Access / Type**: Set to **`private`**.
+
+### 3) HTML描画ゾーン (HTML5 Site Layer) Settings
+Set up the layer zone within your presentation to play the web mask.
+* Create an "HTML5 Zone" in your presentation layout and load the required file: **`brightsign_mask_draw_for_BS.html`**.
+* **Critical Properties (Note: Apply to Classic BA only; these are auto-optimized in connected)**
+  * `Optimize Graphics`: **Check (ON)**
+  * `Enable Hardware Acceleration`: **Check (ON)**
+  * `Background transparent`: **Check (ON)** (Absolutely required to see the background video layer beneath the mask)
+
+### 📌 [Mandatory Switch] Enable BrightSign JavaScript Objects
+* Within the HTML5 Site configuration window (HTML5 Site Properties), **you must check `Enable BrightSign JavaScript objects`**.
+* **What happens if left disabled?**: Even if the device successfully receives the data string (`mask_config_string`) over the network, the HTML player logic will be blocked from reading it. As a result, **the transmission status will report success, but the mask shape on the screen will remain unchanged.**
+
+---
+
+## 🏁 5. Production Workflow (Final Deployment)
+
+Once fine-tuning is completed on the PC controller, deploy the final files to the SD card to lock the system configuration.
+
+* **For [Example 1] (HTML Player Mode)**  
+  Take the file generated via "Save Offline HTML", rename it to **`brightsign_mask_draw_for_brightsign.html`**, and overwrite the player file on the SD card.
+* **For [Example 2] (Transparent PNG Mode)**  
+  Take the transparent mask image generated via "Save Transparent PNG", rename it to **`trans_pic.png`**, and completely replace the initial placeholder image on the SD card.
+
+---
+
