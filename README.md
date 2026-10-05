@@ -2,6 +2,8 @@
 
 BrightSignの実機に対して、マルチレイヤー構造の透過マスクや多段階（マルチ）グラデーションデータをリアルタイムに同期送信・自動記憶・ファイルエクスポートできる、プロジェクションマッピング・空間サイネージ演出用の高精度マスクエディターシステムです。
 
+このプログラム、readme.mdはChromeのAIモードで作られました。
+
 ---
 
 ## 📦 1. 必須ファイルとプロジェクト構成
@@ -18,7 +20,7 @@ BrightSignの実機に対して、マルチレイヤー構造の透過マスク�
 通信環境が整っている環境、またはHTML5のみで軽量に透過マスクを常時展開したい場合の構成。
 * **BrightAuthor:connected用ファイル**：`brightsign_mask_draw_for_PCmasktest01.bpfx`
 * **背景用ムービー**：`loopp.mp4`
-* **HTML5プレイヤー**：`brightsign_mask_draw_for_brightsign.html` （実機受信用・オフライン再生用）
+* **HTML5プレイヤー**：`brightsign_mask_draw_for_BS.html` （実機受信用・オフライン再生用）
 
 #### 【例2】 UDPコマンド切り替え ＆ 透過PNGマスク上乗せ運用
 UDPコマンド（`makemaskUDP` / `normalmaskUDP`）を用いて「マスク作成モード」と「本番（デフォルト）通常マスク」を瞬時に切り替えるプロ仕様の構成。
